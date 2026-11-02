@@ -1,0 +1,1 @@
+export type EnemyBehaviorType = 'chase' | 'charger' | 'shooter';
