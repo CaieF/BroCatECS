@@ -68,19 +68,24 @@ export class CarryWeaponFactory {
 
             originX: startX,
             originY: startY,
+            anchorFromX: startX,
+            anchorFromY: startY,
 
-            recoilFromX: startX,
-            recoilFromY: startY,
-            recoilToX: startX,
-            recoilToY: startY,
+            recoilFromX: 0,
+            recoilFromY: 0,
+            recoilToX: 0,
+            recoilToY: 0,
 
-            strikeFromX: startX,
-            strikeFromY: startY,
-            strikeToX: startX,
-            strikeToY: startY,
+            strikeFromX: 0,
+            strikeFromY: 0,
+            strikeToX: 0,
+            strikeToY: 0,
+            recoverFromX: 0,
+            recoverFromY: 0,
 
             fired: false,
-            hitApplied: false,
+            damage: null,
+            hitEntities: new Set<number>(),
         };
 
         const weaponTarget: WeaponTarget = {
@@ -103,10 +108,13 @@ export class CarryWeaponFactory {
 
             recoilDistance: action.recoilDistance,
             recoilDuration: action.recoilDuration,
+            recoverDuration: action.recoverDuration ?? 0.1,
 
             dashDistance: action.dashDistance,
             dashDuration: action.dashDuration,
             hitRadius: action.hitRadius,
+            hitStart: action.hitStart ?? 0,
+            hitEnd: action.hitEnd ?? 48,
 
             bulletSpeed: action.bulletSpeed,
         });

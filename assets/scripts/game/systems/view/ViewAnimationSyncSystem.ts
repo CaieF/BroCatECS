@@ -42,10 +42,13 @@ export class ViewAnimationSyncSystem extends System {
 
             if (world.hasComponent(entity, C_HURT_FLASH)) {
                 const hurtFlash = world.requireComponent<HurtFlash>(entity, C_HURT_FLASH);
-                // actorView.setFlashMaterial(ctx.flashWhiteMaterial, hurtFlash.active);
-                actorView.setFlashEnabled(ctx.flashWhiteMaterial, hurtFlash.active);
+                // 前 40% 时间保持纯白，之后平滑恢复；每次命中都会重新从强度 1 开始。
+                const strength = hurtFlash.active && hurtFlash.duration > 0
+                    ? Math.min(1, Math.max(0, hurtFlash.remaining / (hurtFlash.duration * 0.6)))
+                    : 0;
+                actorView.setFlashStrength(ctx.flashWhiteMaterial, strength);
             } else {
-                actorView.setFlashEnabled(ctx.flashWhiteMaterial, false);
+                actorView.setFlashStrength(ctx.flashWhiteMaterial, 0);
             }
         }
     }

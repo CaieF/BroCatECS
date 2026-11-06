@@ -1,6 +1,8 @@
 import { Node, Prefab, Vec3 } from 'cc';
 import { C_AIM_ROTATION, C_ANIM_STATE, C_ATTACK_TIMER, C_AUTO_AIM, C_BASE_MOVE_SPEED, C_BASE_STATS, C_BONUS_STATS, C_CAMP, C_CARRY_OWNER, C_CARRY_SLOT_INDEX, C_CARRY_WEAPON_SLOTS, C_CARRY_WEAPON_TAG, C_CHARACTER_IDENTITY, C_COLLIDER, C_CONTACT_DAMAGE, C_DAMAGE, C_DEAD_TAG, C_DEATH_DELAY, C_DESTROY_TAG, C_ECONOMY, C_ENEMY_AI, C_ENEMY_IDENTITY, C_ENEMY_SKILL_CONFIG, C_ENEMY_STATE_MACHINE, C_ENEMY_STATS, C_ENEMY_TAG, C_EXP, C_FACING, C_FINAL_STATS, C_HEALTH, C_HURT_FLASH, C_ITEM_INVENTORY, C_LEVEL, C_LIFE_STEAL_STATE, C_LIFE_TIME, C_MOVE_DIRECTION, C_MOVE_INPUT, C_PENDING_LEVEL_UP, C_PICKUP_MAGNET, C_PICKUP_REWARD, C_PICKUP_TAG, C_PLAYER_TAG, C_POSITION, C_PROJECTILE_TAG, C_REGEN_STATE, C_VELOCITY, C_VIEW_REF, C_WEAPON_ATTACK_STATE, C_WEAPON_INVENTORY, C_WEAPON_RUNTIME, C_WEAPON_SLOTS, C_WEAPON_TARGET } from '../../core/ecs/ComponentTypes';
 import { BattleContext } from './BattleContext';
+import { C_PREVIOUS_POSITION } from '../../core/ecs/ComponentTypes';
+import { PositionHistorySystem } from '../systems/core/PositionHistorySystem';
 import { PlayerInputSystem } from '../systems/input/PlayerInputSystem';
 import { PlayerMoveSystem } from '../systems/input/PlayerMoveSystem';
 import { TransformSyncSystem } from '../systems/view/TransformSyncSystem';
@@ -108,6 +110,7 @@ export class BattleController {
 
         world.registerComponent(C_PLAYER_TAG);
         world.registerComponent(C_POSITION);
+        world.registerComponent(C_PREVIOUS_POSITION);
         world.registerComponent(C_VELOCITY);
         world.registerComponent(C_MOVE_INPUT);
         world.registerComponent(C_FINAL_STATS);
@@ -181,6 +184,7 @@ export class BattleController {
         const world = this._ctx.world;
 
         world.addSystem(new StatRebuildSystem(), this._ctx);
+        world.addSystem(new PositionHistorySystem(), this._ctx);
         world.addSystem(new ExpLevelSystem(), this._ctx);
 
         world.addSystem(new PlayerInputSystem(), this._ctx);

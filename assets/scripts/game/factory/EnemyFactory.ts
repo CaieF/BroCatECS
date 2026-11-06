@@ -16,6 +16,7 @@ import {
     C_HURT_FLASH,
     C_MOVE_DIRECTION,
     C_POSITION,
+    C_PREVIOUS_POSITION,
     C_VELOCITY,
     C_VIEW_REF,
 } from '../../core/ecs/ComponentTypes';
@@ -118,7 +119,7 @@ export class EnemyFactory {
             max: finalHp,
         };
         const collider: Collider = {
-            radius: 22,
+            radius: cfg.collisionRadius,
         };
         const moveDirection: MoveDirection = {
             x: 0,
@@ -136,6 +137,7 @@ export class EnemyFactory {
             duration: 0.12,
             remaining: 0,
             active: false,
+            justTriggered: false,
         };
 
         const camp: Camp = {
@@ -150,6 +152,7 @@ export class EnemyFactory {
 
         world.addComponent(entity, C_ENEMY_TAG, true);
         world.addComponent(entity, C_POSITION, position);
+        world.addComponent(entity, C_PREVIOUS_POSITION, { x, y });
         world.addComponent(entity, C_VELOCITY, velocity);
         world.addComponent(entity, C_VIEW_REF, viewRef);
 

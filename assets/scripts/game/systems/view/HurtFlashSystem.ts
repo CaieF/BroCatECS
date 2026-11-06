@@ -22,7 +22,13 @@ export class HurtFlashSystem extends System {
 
             if (!hurtFlash.active) continue;
 
-            hurtFlash.remaining -= dt;
+            // DamageApplySystem 在本系统之前执行，不能让长帧直接吃掉新触发的闪白。
+            if (hurtFlash.justTriggered) {
+                hurtFlash.justTriggered = false;
+                continue;
+            }
+
+            hurtFlash.remaining -= Number.isFinite(dt) ? Math.max(0, dt) : 0;
 
             if (hurtFlash.remaining <= 0) {
                 hurtFlash.remaining = 0;

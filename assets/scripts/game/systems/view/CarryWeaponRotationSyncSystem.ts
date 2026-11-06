@@ -29,7 +29,7 @@ export class CarryWeaponRotationSyncSystem extends System {
             if (!node || !node.isValid) continue;
 
             node.angle = math.toDegree(aimRotation.rad);
-            node.getComponent(WeaponView).update_visual(math.toDegree(aimRotation.rad));
+            node.getComponent(WeaponView)?.update_visual(math.toDegree(aimRotation.rad));
         }
     }
 }

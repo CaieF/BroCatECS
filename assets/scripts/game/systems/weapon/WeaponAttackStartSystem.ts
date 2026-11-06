@@ -6,6 +6,8 @@ import {
     C_AIM_ROTATION,
     C_CARRY_OWNER,
     C_CARRY_WEAPON_TAG,
+    C_DEAD_TAG,
+    C_DESTROY_TAG,
     C_FINAL_STATS,
     C_LEVEL,
     C_POSITION,
@@ -22,6 +24,7 @@ import { CarryOwner } from '../../components/weapon/CarryOwner';
 import { FinalStats } from '../../components/actor/FinalStats';
 import { Level } from '../../components/player/Level';
 import { WeaponFormula } from '../../formula/WeaponFormula';
+import { WeaponDefinitionUtil } from '../../config/WeaponDefinitionUtil';
 
 export class WeaponAttackStartSystem extends System {
     constructor() {
@@ -67,6 +70,7 @@ export class WeaponAttackStartSystem extends System {
 
             const targetEntity = weaponTarget.targetEntity;
             if (!targetEntity || !world.hasEntity(targetEntity)) continue;
+            if (world.hasComponent(targetEntity, C_DEAD_TAG) || world.hasComponent(targetEntity, C_DESTROY_TAG)) continue;
             if (!world.hasComponent(targetEntity, C_POSITION)) continue;
 
             const targetPos = world.requireComponent<Position>(targetEntity, C_POSITION);
@@ -75,34 +79,47 @@ export class WeaponAttackStartSystem extends System {
             const dy = targetPos.y - pos.y;
             const distSq = dx * dx + dy * dy;
 
-            if (distSq > computed.finalRange * computed.finalRange) {
+            const attackRange = Math.max(0, computed.finalRange);
+            if (distSq > attackRange * attackRange) {
                 continue;
             }
 
-            const aimRad = Math.atan2(dy, dx);
+            // 重合时没有新的瞄准方向，保持已有朝向，避免 atan2(0, 0) 突然归零。
+            const aimRad = distSq > 1e-8 ? Math.atan2(dy, dx) : aim.rad;
 
-            state.phase = 'recoil';
-            state.timer = runtime.recoilDuration;
+            state.phase = runtime.type === 'melee' ? 'recoil' : 'shoot';
+            state.timer = runtime.type === 'melee' ? Math.max(0, runtime.recoilDuration) : 0;
             state.targetEntity = targetEntity;
             state.aimRad = aimRad;
 
             state.originX = pos.x;
             state.originY = pos.y;
+            state.anchorFromX = pos.x;
+            state.anchorFromY = pos.y;
 
-            state.recoilFromX = pos.x;
-            state.recoilFromY = pos.y;
-            state.recoilToX = pos.x - Math.cos(aimRad) * runtime.recoilDistance;
-            state.recoilToY = pos.y - Math.sin(aimRad) * runtime.recoilDistance;
+            const dirX = Math.cos(aimRad);
+            const dirY = Math.sin(aimRad);
+            state.recoilFromX = 0;
+            state.recoilFromY = 0;
+            state.recoilToX = -dirX * runtime.recoilDistance;
+            state.recoilToY = -dirY * runtime.recoilDistance;
 
-            state.strikeFromX = pos.x;
-            state.strikeFromY = pos.y;
-            state.strikeToX = pos.x;
-            state.strikeToY = pos.y;
+            const baseRange = WeaponDefinitionUtil.getTierStats(runtime.weaponKey, runtime.tier).range;
+            const reach = Math.max(0, runtime.dashDistance + computed.finalRange - baseRange);
+            const bladeEnd = Math.max(runtime.hitStart ?? 0, runtime.hitEnd ?? 48);
+            const extension = Math.min(reach, Math.max(0, Math.sqrt(distSq) - bladeEnd));
+            state.strikeFromX = state.recoilToX;
+            state.strikeFromY = state.recoilToY;
+            state.strikeToX = dirX * extension;
+            state.strikeToY = dirY * extension;
+            state.recoverFromX = 0;
+            state.recoverFromY = 0;
 
             state.fired = false;
-            state.hitApplied = false;
+            state.damage = null;
+            state.hitEntities.clear();
 
-            // aim.rad = aimRad;
+            aim.rad = aimRad;
 
             runtime.cooldown = computed.finalAttackInterval;
         }

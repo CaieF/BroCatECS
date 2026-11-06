@@ -134,6 +134,7 @@ export class PlayerFactory {
             duration: 0.08,
             remaining: 0,
             active: false,
+            justTriggered: false,
         };
 
         const collider: Collider = {

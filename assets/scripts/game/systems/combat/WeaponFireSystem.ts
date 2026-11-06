@@ -15,6 +15,7 @@ import { AutoAim } from '../../components/weapon/AutoAim';
 import { Position } from '../../components/common/Position';
 import { WeaponSlots } from '../../components/player/WeaponSlots';
 import { ProjectileFactory } from '../../factory/ProjectileFactory';
+import { CampType } from '../../components/common/Camp';
 
 /**
  * 无用
@@ -81,14 +82,15 @@ export class WeaponFireSystem extends System {
             ProjectileFactory.create(
                 ctx,
                 world,
-                this._projectilePrefab,
+                'bulletPistol',
                 ctx.bulletLayer,
                 position.x,
                 position.y,
                 dirX,
                 dirY,
                 520,
-                10
+                10,
+                CampType.Player
             );
 
             attackTimer.cooldown = attackTimer.interval;

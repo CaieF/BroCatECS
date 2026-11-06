@@ -1,4 +1,4 @@
-import { instantiate, Node, Prefab } from 'cc';
+import { Node } from 'cc';
 import { World } from '../../core/ecs/World';
 import {
     C_CAMP,
@@ -6,6 +6,7 @@ import {
     C_DAMAGE,
     C_LIFE_TIME,
     C_POSITION,
+    C_PREVIOUS_POSITION,
     C_PROJECTILE_TAG,
     C_VELOCITY,
     C_VIEW_REF,
@@ -18,29 +19,22 @@ import { Damage } from '../components/projectile/Damage';
 import { LifeTime } from '../components/common/LifeTime';
 import { Collider } from '../components/common/Collider';
 import { Camp, CampType } from '../components/common/Camp';
-import { ProjectilePrefabLibrary } from '../config/ProjectilePrefabLibrary';
 import { BattleContext } from '../battle/BattleContext';
 
 export class ProjectileFactory {
     public static create(
-    ctx: BattleContext,
-    world: World,
-    projectileKey: string,
-    bulletLayer: Node,
-    x: number,
-    y: number,
-    dirX: number,
-    dirY: number,
-    speed: number,
-    damageValue: number,
-    campType: CampType
-): Entity {
-        // const prefab = projectilePrefabLibrary.get(projectileKey);
-        // if (!prefab) {
-        //     throw new Error(`Projectile prefab not found: key=${projectileKey}`);
-        // }
-
-        // const projectileNode = instantiate(prefab);
+        ctx: BattleContext,
+        world: World,
+        projectileKey: string,
+        bulletLayer: Node,
+        x: number,
+        y: number,
+        dirX: number,
+        dirY: number,
+        speed: number,
+        damageValue: number,
+        campType: CampType
+    ): Entity {
         const projectileNode = ctx.nodePool.get(projectileKey);
         if (!projectileNode) {
             throw new Error(`Projectile pool get failed: ${projectileKey}`);
@@ -58,11 +52,14 @@ export class ProjectileFactory {
         const viewRef: ViewRef = { node: projectileNode, poolKey: projectileKey };
         const damage: Damage = { value: damageValue };
         const lifeTime: LifeTime = { remaining: 1.5 };
+        // The visible yellow body is about 20 units across at the prefab's 0.5 scale.
         const collider: Collider = { radius: 10 };
         const camp: Camp = { value: campType };
 
         world.addComponent(entity, C_PROJECTILE_TAG, true);
         world.addComponent(entity, C_POSITION, position);
+        // Projectiles can be spawned after PositionHistorySystem has run this frame.
+        world.addComponent(entity, C_PREVIOUS_POSITION, { x, y, travelFraction: 1 });
         world.addComponent(entity, C_VELOCITY, velocity);
         world.addComponent(entity, C_VIEW_REF, viewRef);
         world.addComponent(entity, C_DAMAGE, damage);

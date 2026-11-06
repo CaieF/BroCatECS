@@ -2,6 +2,7 @@ import { System } from '../../../core/ecs/System';
 import { World } from '../../../core/ecs/World';
 import { BattleContext } from '../../battle/BattleContext';
 import {
+    C_BASE_STATS,
     C_BONUS_STATS,
     C_ECONOMY,
     C_FINAL_STATS,
@@ -10,17 +11,21 @@ import {
 } from '../../../core/ecs/ComponentTypes';
 import { PendingLevelUp } from '../../components/player/PendingLevelUp';
 import { UpgradeOptionGenerator } from '../../upgrade/UpgradeOptionGenerator';
-import { UpgradeOptionConfigTable } from '../../config/UpgradeOptionConfig';
+import { UpgradeOptionConfig } from '../../config/UpgradeOptionConfig';
+import { BaseStats } from '../../components/actor/BaseStats';
 import { BonusStats } from '../../components/actor/BonusStats';
+import { CharacterStats } from '../../components/actor/CharacterStats';
+import { CharacterStatsUtil } from '../../formula/CharacterStatsUtil';
 import { StatApplyUtil } from '../../formula/StatApplyUtil';
 import { FinalStats } from '../../components/actor/FinalStats';
-import { StatDisplayItem } from '../../../ui/panels/StatDisplayItem';
 import { Economy } from '../../components/player/Economy';
 import { Level } from '../../components/player/Level';
 import { StatPanelUtil } from '../../../ui/common/StatPanelUtil';
 import { PlayerStatViewData } from '../../../ui/data/PlayerStatViewData';
 
 export class LevelUpFlowSystem extends System {
+    private static readonly REFRESH_COST = 1;
+
     constructor() {
         super();
         this.priority = 1400;
@@ -50,28 +55,39 @@ export class LevelUpFlowSystem extends System {
         const player = ctx.playerEntity;
         if (!player || !world.hasEntity(player)) return;
 
+        const pending = world.getComponent<PendingLevelUp>(player, C_PENDING_LEVEL_UP);
+        if (!pending || pending.count <= 0) return;
+
         ctx.levelUpPanelOpen = true;
         ctx.battlePaused = true;
 
         if (ctx.currentUpgradeOptions.length === 0) {
-            ctx.currentUpgradeOptions = UpgradeOptionGenerator.rollOptions(4);
+            ctx.currentUpgradeOptions = this.rollOptions(world, player);
         }
 
-        const statData = this.buildStatViewData(world, player);
+        this.showOptions(world, ctx);
+    }
 
-        ui.showLevelUpPanel(
-            ctx.currentUpgradeOptions.map(opt => ({
+    private showOptions(world: World, ctx: BattleContext): void {
+        const options = ctx.currentUpgradeOptions;
+        const statData = this.buildStatViewData(world, ctx.playerEntity);
+
+        ctx.uiFacade?.showLevelUpPanel(
+            options.map(opt => ({
                 id: opt.id,
+                statKey: opt.statKey,
+                tier: opt.tier,
                 title: opt.title,
                 desc: opt.desc,
-                iconPath: opt.iconPath,
             })),
             statData,
-            1,
+            LevelUpFlowSystem.REFRESH_COST,
             (optionId: string) => {
+                if (ctx.currentUpgradeOptions !== options) return;
                 this.selectUpgradeOption(world, ctx, optionId);
             },
             () => {
+                if (ctx.currentUpgradeOptions !== options) return;
                 this.refreshUpgradeOptions(world, ctx);
             }
         );
@@ -83,11 +99,13 @@ export class LevelUpFlowSystem extends System {
 
         const player = ctx.playerEntity;
         if (!player || !world.hasEntity(player)) return;
+        if (!ctx.levelUpPanelOpen) return;
 
         const pending = world.requireComponent<PendingLevelUp>(player, C_PENDING_LEVEL_UP);
+        if (pending.count <= 0) return;
         const bonusStats = world.requireComponent<BonusStats>(player, C_BONUS_STATS);
 
-        const option = UpgradeOptionConfigTable.find(o => o.id === optionId);
+        const option = ctx.currentUpgradeOptions.find(o => o.id === optionId);
         if (!option) return;
 
         StatApplyUtil.applyPartialBonus(bonusStats, option.addStats);
@@ -114,40 +132,49 @@ export class LevelUpFlowSystem extends System {
 
         const player = ctx.playerEntity;
         if (!player || !world.hasEntity(player)) return;
+        if (!ctx.levelUpPanelOpen) return;
         if (!world.hasComponent(player, C_ECONOMY)) return;
+        const pending = world.getComponent<PendingLevelUp>(player, C_PENDING_LEVEL_UP);
+        if (!pending || pending.count <= 0) return;
 
         const economy = world.requireComponent<Economy>(player, C_ECONOMY);
-        const refreshCost = 1;
+        const refreshCost = LevelUpFlowSystem.REFRESH_COST;
 
         if (economy.gold < refreshCost) {
             return;
         }
 
         economy.gold -= refreshCost;
-        ctx.currentUpgradeOptions = UpgradeOptionGenerator.rollOptions(4);
+        ctx.currentUpgradeOptions = this.rollOptions(world, player);
+        this.showOptions(world, ctx);
+    }
 
-        const statData = this.buildStatViewData(world, player);
+    private rollOptions(world: World, player: number): UpgradeOptionConfig[] {
+        const level = world.getComponent<Level>(player, C_LEVEL);
+        const pending = world.requireComponent<PendingLevelUp>(player, C_PENDING_LEVEL_UP);
+        const stats = this.getCurrentStats(world, player);
 
-        ui.showLevelUpPanel(
-            ctx.currentUpgradeOptions.map(opt => ({
-                id: opt.id,
-                title: opt.title,
-                desc: opt.desc,
-                iconPath: opt.iconPath,
-            })),
-            statData,
-            refreshCost,
-            (optionId: string) => {
-                this.selectUpgradeOption(world, ctx, optionId);
-            },
-            () => {
-                this.refreshUpgradeOptions(world, ctx);
-            }
-        );
+        // 同一波内的升级按获得顺序逐个结算；刷新仍使用当前这一轮的等级。
+        return UpgradeOptionGenerator.rollOptions(4, {
+            level: Math.max(2, (level?.current ?? 2) - pending.count + 1),
+            luck: stats?.luck ?? 0,
+        });
+    }
+
+    private getCurrentStats(world: World, player: number): CharacterStats | undefined {
+        const base = world.getComponent<BaseStats>(player, C_BASE_STATS);
+        const bonus = world.getComponent<BonusStats>(player, C_BONUS_STATS);
+        if (base && bonus) {
+            // 战斗暂停时 StatRebuildSystem 不运行，预览与幸运抽选须使用最新加成。
+            const stats = CharacterStatsUtil.clone(base);
+            CharacterStatsUtil.addTo(stats, bonus);
+            return stats;
+        }
+        return world.getComponent<FinalStats>(player, C_FINAL_STATS);
     }
 
     private buildStatViewData(world: World, player: number): PlayerStatViewData | null {
-        const stats = world.getComponent<FinalStats>(player, C_FINAL_STATS);
+        const stats = this.getCurrentStats(world, player);
         const level = world.getComponent<Level>(player, C_LEVEL);
 
         if (!stats) return null;

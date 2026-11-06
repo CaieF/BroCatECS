@@ -10,10 +10,13 @@ export interface WeaponRuntime {
 
     recoilDistance: number;
     recoilDuration: number;
+    recoverDuration: number;
 
     dashDistance: number;
     dashDuration: number;
     hitRadius: number;
+    hitStart?: number;
+    hitEnd?: number;
 
     bulletSpeed: number;
 }

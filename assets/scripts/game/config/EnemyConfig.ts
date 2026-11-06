@@ -5,6 +5,8 @@ export interface EnemyConfigData {
     name: string;
 
     prefabKey: string;
+    /** Body radius in battle-layer units, excluding the decorative shadow. */
+    collisionRadius: number;
 
     maxHp: number;
     damage: number;
@@ -37,6 +39,7 @@ export const EnemyConfigTable: Record<number, EnemyConfigData> = {
         enemyId: 3001,
         name: '普通追击怪',
         prefabKey: 'enemyChase',
+        collisionRadius: 28,
 
         maxHp: 30,
         damage: 8,
@@ -66,6 +69,7 @@ export const EnemyConfigTable: Record<number, EnemyConfigData> = {
         enemyId: 3002,
         name: '冲锋怪',
         prefabKey: 'enemyCharger',
+        collisionRadius: 28,
 
         maxHp: 40,
         damage: 12,
@@ -95,6 +99,7 @@ export const EnemyConfigTable: Record<number, EnemyConfigData> = {
         enemyId: 3003,
         name: '射击怪',
         prefabKey: 'enemyShooter',
+        collisionRadius: 28,
 
         maxHp: 22,
         damage: 6,

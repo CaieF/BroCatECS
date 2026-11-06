@@ -6,14 +6,14 @@ import {
     C_DESTROY_TAG,
     C_LIFE_TIME,
     C_POSITION,
+    C_PREVIOUS_POSITION,
     C_PROJECTILE_TAG,
     C_VELOCITY,
-    C_VIEW_REF,
 } from '../../../core/ecs/ComponentTypes';
 import { Position } from '../../components/common/Position';
 import { Velocity } from '../../components/common/Velocity';
 import { LifeTime } from '../../components/common/LifeTime';
-import { ViewRef } from '../../components/common/ViewRef';
+import { PreviousPosition } from '../../components/common/PreviousPosition';
 
 export class ProjectileMoveSystem extends System {
     constructor() {
@@ -22,12 +22,10 @@ export class ProjectileMoveSystem extends System {
     }
 
     public update(world: World, dt: number, ctx: BattleContext): void {
-        const projectiles = Query.all(
+        const projectiles = Query.exclude(
             world,
-            C_PROJECTILE_TAG,
-            C_POSITION,
-            C_VELOCITY,
-            C_LIFE_TIME
+            [C_PROJECTILE_TAG, C_POSITION, C_VELOCITY, C_LIFE_TIME],
+            [C_DESTROY_TAG]
         );
 
         for (const entity of projectiles) {
@@ -35,18 +33,21 @@ export class ProjectileMoveSystem extends System {
             const velocity = world.requireComponent<Velocity>(entity, C_VELOCITY);
             const lifeTime = world.requireComponent<LifeTime>(entity, C_LIFE_TIME);
 
-            position.x += velocity.x * dt;
-            position.y += velocity.y * dt;
-
-            lifeTime.remaining -= dt;
-
-            if (lifeTime.remaining <= 0) {
-                if (!world.hasComponent(entity, C_DESTROY_TAG)) {
-                    world.addComponent(entity, C_DESTROY_TAG, true);
-                }
+            let previous = world.getComponent<PreviousPosition>(entity, C_PREVIOUS_POSITION);
+            if (!previous) {
+                previous = { x: position.x, y: position.y };
+                world.addComponent(entity, C_PREVIOUS_POSITION, previous);
             }
-        }
+            previous.x = position.x;
+            previous.y = position.y;
 
-        world.flushDestroy();
+            const moveDt = Math.min(Math.max(0, dt), Math.max(0, lifeTime.remaining));
+            previous.travelFraction = dt > 0 ? moveDt / dt : 0;
+            position.x += velocity.x * moveDt;
+            position.y += velocity.y * moveDt;
+            lifeTime.remaining = Math.max(0, lifeTime.remaining - moveDt);
+
+            // CollisionSystem tests this final segment before marking expired bullets for recycling.
+        }
     }
 }

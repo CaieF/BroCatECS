@@ -1,4 +1,5 @@
 export const C_POSITION = 'Position';
+export const C_PREVIOUS_POSITION = 'PreviousPosition';
 export const C_VELOCITY = 'Velocity';
 export const C_MOVE_INPUT = 'MoveInput';
 export const C_PLAYER_TAG = 'PlayerTag';

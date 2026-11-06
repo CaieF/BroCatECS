@@ -15,7 +15,8 @@ import { Collider } from '../../components/common/Collider';
 export class BoundsClampSystem extends System {
     constructor() {
         super();
-        this.priority = 65;
+        // 在寻敌/攻击前得到本帧最终位置，避免边界修正发生在近战判定之后。
+        this.priority = 33;
     }
 
     public update(world: World, dt: number, ctx: BattleContext): void {

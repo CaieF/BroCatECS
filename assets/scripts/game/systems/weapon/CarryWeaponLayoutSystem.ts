@@ -26,7 +26,8 @@ import { CarryWeaponLayoutUtil } from '../../../core/utils/CarryWeaponLayoutUtil
 export class CarryWeaponLayoutSystem extends System {
     constructor() {
         super();
-        this.priority = 45;
+        // Seek targets from this frame's carry anchor, after owner movement.
+        this.priority = 43;
     }
 
     public update(world: World, dt: number, ctx: BattleContext): void {
@@ -71,12 +72,17 @@ export class CarryWeaponLayoutSystem extends System {
                 const aimRotation = world.requireComponent<AimRotation>(weaponEntity, C_AIM_ROTATION);
                 const weaponTarget = world.requireComponent<WeaponTarget>(weaponEntity, C_WEAPON_TARGET);
 
-                const local = offsets[Math.min(slotIndex, offsets.length - 1)];
+                const local = offsets[Math.max(0, Math.min(slotIndex, offsets.length - 1))];
 
                 let attacking = false;
                 if (world.hasComponent(weaponEntity, C_WEAPON_ATTACK_STATE)) {
                     const attackState = world.requireComponent<WeaponAttackState>(weaponEntity, C_WEAPON_ATTACK_STATE);
                     attacking = attackState.phase !== 'idle';
+                    attackState.anchorFromX = attackState.originX;
+                    attackState.anchorFromY = attackState.originY;
+                    attackState.originX = ownerPos.x + local.x;
+                    attackState.originY = ownerPos.y + local.y;
+                    if (attacking) aimRotation.rad = attackState.aimRad;
                 }
 
                 if (!attacking) {
@@ -88,7 +94,7 @@ export class CarryWeaponLayoutSystem extends System {
                 }
 
                 // 每把武器独立瞄准自己的目标
-                if (
+                if (!attacking &&
                     weaponTarget.targetEntity > 0 &&
                     world.hasEntity(weaponTarget.targetEntity) &&
                     world.hasComponent(weaponTarget.targetEntity, C_POSITION)
@@ -96,7 +102,7 @@ export class CarryWeaponLayoutSystem extends System {
                     const targetPos = world.requireComponent<Position>(weaponTarget.targetEntity, C_POSITION);
                     const dx = targetPos.x - pos.x;
                     const dy = targetPos.y - pos.y;
-                    aimRotation.rad = Math.atan2(dy, dx);
+                    if (dx * dx + dy * dy > 1e-8) aimRotation.rad = Math.atan2(dy, dx);
                 }
             }
         }

@@ -1,11 +1,11 @@
-import { FinalStats } from '../../game/components/actor/FinalStats';
+import { CharacterStats } from '../../game/components/actor/CharacterStats';
 import { PlayerStatViewData } from '../data/PlayerStatViewData';
 
 /**
  * 玩家属性转换为ui数据
  */
 export class StatPanelUtil {
-    public static fromStats(level: number, stats: FinalStats): PlayerStatViewData {
+    public static fromStats(level: number, stats: CharacterStats): PlayerStatViewData {
         return {
             level: level,
 

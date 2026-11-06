@@ -4,6 +4,8 @@ import { World } from '../../../core/ecs/World';
 import { BattleContext } from '../../battle/BattleContext';
 import {
     C_CARRY_OWNER,
+    C_DEAD_TAG,
+    C_DESTROY_TAG,
     C_FINAL_STATS,
     C_HEALTH,
     C_HURT_FLASH,
@@ -34,6 +36,12 @@ export class DamageApplySystem extends System {
         for (const evt of events) {
             if (!world.hasEntity(evt.targetEntity)) continue;
             if (!world.hasComponent(evt.targetEntity, C_HEALTH)) continue;
+            if (world.hasComponent(evt.targetEntity, C_DEAD_TAG) || world.hasComponent(evt.targetEntity, C_DESTROY_TAG)) continue;
+            if (!Number.isFinite(evt.value) || evt.value <= 0) continue;
+
+            const health = world.requireComponent<Health>(evt.targetEntity, C_HEALTH);
+            // 同一帧可能有多个命中事件，致死后的事件也不再触发受击/吸血。
+            if (!(health.current > 0)) continue;
 
             let finalDamage = evt.value;
             let dodged = false;
@@ -56,7 +64,7 @@ export class DamageApplySystem extends System {
                 finalDamage = finalDamage * 100 / (100 + armor);
             }
 
-            const health = world.requireComponent<Health>(evt.targetEntity, C_HEALTH);
+            if (!Number.isFinite(finalDamage) || finalDamage <= 0) continue;
             health.current -= finalDamage;
 
             if (health.current < 0) {
@@ -65,8 +73,10 @@ export class DamageApplySystem extends System {
 
             if (world.hasComponent(evt.targetEntity, C_HURT_FLASH)) {
                 const hurtFlash = world.requireComponent<HurtFlash>(evt.targetEntity, C_HURT_FLASH);
-                hurtFlash.active = true;
-                hurtFlash.remaining = hurtFlash.duration;
+                const duration = Number.isFinite(hurtFlash.duration) ? Math.max(0, hurtFlash.duration) : 0;
+                hurtFlash.active = duration > 0;
+                hurtFlash.remaining = duration;
+                hurtFlash.justTriggered = duration > 0;
             }
 
             this.emitDamageFloatingText(world, evt.targetEntity, finalDamage);

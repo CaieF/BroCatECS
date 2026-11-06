@@ -6,20 +6,25 @@ import {
     C_CARRY_OWNER,
     C_CARRY_WEAPON_TAG,
     C_DEAD_TAG,
+    C_DESTROY_TAG,
     C_ENEMY_TAG,
     C_FINAL_STATS,
+    C_HEALTH,
     C_LEVEL,
     C_POSITION,
     C_WEAPON_RUNTIME,
     C_WEAPON_TARGET,
+    C_WEAPON_ATTACK_STATE,
 } from '../../../core/ecs/ComponentTypes';
 import { Position } from '../../components/common/Position';
+import { Health } from '../../components/actor/Health';
 import { WeaponRuntime } from '../../components/weapon/WeaponRuntime';
 import { WeaponTarget } from '../../components/weapon/WeaponTarget';
 import { CarryOwner } from '../../components/weapon/CarryOwner';
 import { FinalStats } from '../../components/actor/FinalStats';
 import { Level } from '../../components/player/Level';
 import { WeaponFormula } from '../../formula/WeaponFormula';
+import { WeaponAttackState } from '../../components/weapon/WeaponAttackState';
 
 export class WeaponTargetSearchSystem extends System {
     constructor() {
@@ -39,11 +44,13 @@ export class WeaponTargetSearchSystem extends System {
 
         const enemies = Query.exclude(
             world,
-            [C_ENEMY_TAG, C_POSITION],
-            [C_DEAD_TAG]
+            [C_ENEMY_TAG, C_POSITION, C_HEALTH],
+            [C_DEAD_TAG, C_DESTROY_TAG]
         );
 
         for (const weaponEntity of weapons) {
+            const attackState = world.getComponent<WeaponAttackState>(weaponEntity, C_WEAPON_ATTACK_STATE);
+            if (attackState && attackState.phase !== 'idle') continue;
             const owner = world.requireComponent<CarryOwner>(weaponEntity, C_CARRY_OWNER);
             if (!world.hasEntity(owner.entity)) continue;
             if (!world.hasComponent(owner.entity, C_FINAL_STATS)) continue;
@@ -56,12 +63,14 @@ export class WeaponTargetSearchSystem extends System {
             const playerLevel = world.requireComponent<Level>(owner.entity, C_LEVEL);
 
             const computed = WeaponFormula.compute(runtime.weaponKey, runtime.tier, playerStats, playerLevel.current);
-            const attackRangeSq = computed.finalRange * computed.finalRange;
+            const attackRange = Math.max(0, computed.finalRange);
+            const attackRangeSq = attackRange * attackRange;
 
             let bestTarget = 0;
             let bestDistSq = attackRangeSq;
 
             for (const enemyEntity of enemies) {
+                if (world.requireComponent<Health>(enemyEntity, C_HEALTH).current <= 0) continue;
                 const enemyPos = world.requireComponent<Position>(enemyEntity, C_POSITION);
 
                 const dx = enemyPos.x - weaponPos.x;
